@@ -9,9 +9,8 @@ LOCALES=('en_US.UTF-8 UTF-8' 'fr_FR.UTF-8 UTF-8')
 LANG='en_US.UTF-8'
 DOT_FILES_URL='https://github.com/Lahorde/dotfiles'
 declare -A CONFIG_FILES
-CONFIG_FILES=(['../config_files/netctl/a4h_creativity_lab_wlan0']='/etc/netctl' \
-  ['../config_files/samba/smb.conf']='/etc/samba/' \
-  ['../config_files/systemd/timesyncd.conf']='/etc/systemd/timesyncd.conf'
+CONFIG_FILES=(['../config_files/netctl/home_remi']='/etc/netctl' \
+  ['../config_files/samba/smb.conf']='/etc/samba/'
 )
 
 function end
@@ -40,25 +39,29 @@ fi
 if ! [[ $(ls -di) =~ ^2[[:space:]].*$ ]] 
 then
   run_command 'read resp' 'Do you want to do initial installation in a chrooted environment? \(y\)es / \(n\)o\)?'
-  chroot=0
   if [ "$resp" == 'y' ]
   then
     root_dir='root' 
+    if [ $target_arch == 'x86_64' ]
+    then 
+      root_dir='root.x86_64' 
+    fi
+    
     # Do all needed operations before chrooting
     show_main_step 'Prepare chroot environment' 
     show_text 'Copy all config files'
     for config_file in ${!CONFIG_FILES[*]}
     do
-      if [ ! -e "./root${CONFIG_FILES[${config_file}]}" ]
+      if [ ! -e "./${root_dir}${CONFIG_FILES[${config_file}]}" ]
       then
-        run_command 'sudo mkdir -p "./root${CONFIG_FILES[${config_file}]}"' 'Creating directory "./root${CONFIG_FILES[${config_file}]}"'
+        run_command 'sudo mkdir -p "./${root_dir}${CONFIG_FILES[${config_file}]}"' 'Creating directory "./${root_dir}${CONFIG_FILES[${config_file}]}"'
       fi 
-      run_command 'sudo cp ${config_file} ./root${CONFIG_FILES[${config_file}]}' 'Copying ${config_file} to ./root${CONFIG_FILES[${config_file}]}'
+      run_command 'sudo cp ${config_file} ./${root_dir}${CONFIG_FILES[${config_file}]}' 'Copying ${config_file} to ./${root_dir}${CONFIG_FILES[${config_file}]}'
     done 
 
-    run_command 'sudo cp $0 ./root/bin' 'Copying install script to chroot image'
-    run_command 'sudo cp "$(dirname "$0")/archlinux_install_common.sh" ./root/bin' 'Copying install script to chroot image'
-    run_command 'sudo cp ../archlinux_post_install.sh ./root/bin' 'Copying post-install script to chroot image'
+    run_command 'sudo cp $0 ./${root_dir}/bin' 'Copying install script to chroot image'
+    run_command 'sudo cp "$(dirname "$0")/archlinux_install_common.sh" ./${root_dir}/bin' 'Copying install script to chroot image'
+    run_command 'sudo cp ../archlinux_post_install.sh ./${root_dir}/bin' 'Copying post-install script to chroot image'
 
     if [ ${target_arch:0:3} == 'rpi' ]
     then
@@ -66,11 +69,11 @@ then
       if [ "$target_arch" == 'rpi_armv8' ]
       then
         run_command 'sudo update-binfmts --enable qemu-aarch64 > /dev/null'
-        run_command 'sudo cp /usr/bin/qemu-aarch64-static root/usr/bin'
+        run_command 'sudo cp /usr/bin/qemu-aarch64-static ${root_dir}/usr/bin'
       elif [[ "$target_arch" =~ ^rpi_armv[6,7]$ ]]
       then 
         run_command 'sudo update-binfmts --enable qemu-arm'
-        run_command 'sudo cp /usr/bin/qemu-arm-static root/usr/bin'
+        run_command 'sudo cp /usr/bin/qemu-arm-static ${root_dir}/usr/bin'
       else 
         show_warning  "raspberry target $target_arch not handled"
         end
@@ -79,13 +82,12 @@ then
     elif [ $target_arch == 'x86_64' ]
     then 
       show_text "target is $target_arch"
-      root_dir='root.x86_64' 
     else
       show_warning "target ${target_arch} not handled"
       end
       exit 1
     fi
-    run_command 'sudo  arch-chroot root/ /bin/archlinux_initial_install.sh $target_arch' 'Chrooting...'
+    run_command 'sudo  arch-chroot ${root_dir}/ /bin/archlinux_initial_install.sh $target_arch' 'Chrooting...'
     end
     exit 0 
   else
@@ -189,7 +191,7 @@ run_command 'sed -i -e "s/^.*AutoEnable=.*/AutoEnable=true/" /etc/bluetooth/main
 
 show_main_step 'Enable systemd services'
 run_command 'read wifi_connect' 'Do you want to configure and enable wifi connection using wlan0? \(y\)es / \(n\)o\)?'
-if [ "$enable_x" == 'y' ]
+if [ "$wifi_connect" == 'y' ]
 then
   run_command  ' systemctl enable netctl-auto@wlan0.service'  ' Enable netctl auto connection using wlan0'
 fi 

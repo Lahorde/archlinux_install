@@ -24,7 +24,7 @@ This step can either be run in a chrooted env or on target system.
 During this step, additional install configuration is done. In chrooted environment, DBUS is not present. So, in this step, done with `archlinux_post_install.sh` must be done in target environment.
     
 ## References
-[Building ArchLinux ARM packages ona a PC using QEMU Chroot](https://github.com/RoEdAl/linux-raspberrypi-wsp/wiki/Building-ArchLinux-ARM-packages-ona-a-PC-using-QEMU-Chroot)
-[Archlinux install](https://wiki.archlinux.org/index.php/installation_guide)
-[Archlinux install from existing linux](https://wiki.archlinux.org/index.php/Install_from_existing_Linux)
-[Archlinux install guide for Raspberry](https://elinux.org/ArchLinux_Install_Guide)
+* [Building ArchLinux ARM packages ona a PC using QEMU Chroot](https://github.com/RoEdAl/linux-raspberrypi-wsp/wiki/Building-ArchLinux-ARM-packages-ona-a-PC-using-QEMU-Chroot)
+* [Archlinux install](https://wiki.archlinux.org/index.php/installation_guide)
+* [Archlinux install from existing linux](https://wiki.archlinux.org/index.php/Install_from_existing_Linux)
+* [Archlinux install guide for Raspberry](https://elinux.org/ArchLinux_Install_Guide)

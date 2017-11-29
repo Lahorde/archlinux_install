@@ -9,9 +9,7 @@ LOCALES=('en_US.UTF-8 UTF-8' 'fr_FR.UTF-8 UTF-8')
 LANG='en_US.UTF-8'
 DOT_FILES_URL='https://github.com/Lahorde/dotfiles'
 declare -A CONFIG_FILES
-CONFIG_FILES=(['../config_files/netctl/home_remi']='/etc/netctl' \
-  ['../config_files/samba/smb.conf']='/etc/samba/'
-)
+CONFIG_FILES=()
 
 function end
 {
@@ -25,26 +23,40 @@ function end
 show_main_step 'Doing initial archlinux installation'
 
 target_arch='default'
-if [ $# -eq 1 ]
+if [ $# -ge 1 ]
 then
   show_text "Target architecture is $1"
   target_arch="$1"
 else
-  show_text 'No target architecture specified - default installation will be done'
+  show_warning 'No target architecture specified'
+  end 
+  exit 1
 fi
+
+# In some cases, testing whether we are in chroot with ls -di does not work
+# https://unix.stackexchange.com/questions/14345/how-do-i-tell-im-running-in-a-chroot
+# give chroot info using an chroot arg
+is_chroot=0
+if [ $# -eq 2 ] && [ "$2" == 'chroot' ]
+then
+  is_chroot=1
+fi
+
 
 ###################################
 #  Prepare chrooting              #
 ###################################
-if ! [[ $(ls -di) =~ ^2[[:space:]].*$ ]] 
+if [ $is_chroot -eq 0 ]
 then
   run_command 'read resp' 'Do you want to do initial installation in a chrooted environment? \(y\)es / \(n\)o\)?'
   if [ "$resp" == 'y' ]
   then
     root_dir='root' 
+    chroot_cmd='arch_chroot'
     if [ $target_arch == 'x86_64' ]
     then 
-      root_dir='root.x86_64' 
+      root_dir='root.x86_64'
+      chroot_cmd="${root_dir}/bin/arch-chroot"
     fi
     
     # Do all needed operations before chrooting
@@ -87,7 +99,7 @@ then
       end
       exit 1
     fi
-    run_command 'sudo  arch-chroot ${root_dir}/ /bin/archlinux_initial_install.sh $target_arch' 'Chrooting...'
+    run_command 'sudo  $chroot_cmd ${root_dir}/ /bin/archlinux_initial_install.sh $target_arch chroot' 'Chrooting...'
     end
     exit 0 
   else
@@ -100,12 +112,25 @@ fi
 ##########################################################
 #  All following commands run in newly created system    #
 ##########################################################
+show_main_step 'initialize pacman'
+run_command  ' pacman-key --init'                                                        ' Update pacman key'
+run_command  ' pacman-key --populate archlinux'
+run_command  ' pacman -Syu'                                                              ' Updating packages'
+run_command  ' pacman --needed -S sed less awk gzip'                                          ' Installing required packages for install'
+if [ "$target_arch" == 'x86_64' ]
+then
+  show_text 'all pacman mirrors commented in x86_64 image, rank it by their speed'
+  run_command  'cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup'
+  run_command  'sed -i "s/^#Server/Server/" /etc/pacman.d/mirrorlist.backup'
+  run_command  'rankmirrors -n 6 /etc/pacman.d/mirrorlist.backup > /etc/pacman.d/mirrorlist'
+fi
+
 show_main_step 'configuring locales, machine name...'
 if [ ${target_arch:0:3} == 'rpi' ]
 then
   run_command  ' mount /boot'                                                                                                         ' Mounting /boot'
 fi 
-run_command  ' passwd'                                                                                                              ' Changing root password'
+#run_command  ' passwd'                                                                                                              ' Changing root password'
 run_command  ' echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf'                                                                          ' Changing keymap to FR'
 run_command  ' ln -fs /usr/share/zoneinfo/Europe/Paris /etc/localtime'                                                              ' Set timezone to Paris'
 run_command  ' dircolors --print-database > /etc/DIR_COLORS'                                                                        ' Get colors for ls'
@@ -117,13 +142,12 @@ run_command  ' for loc in "${LOCALES[@]}"; do sed -i -e "s/#$loc/$loc/" /etc/loc
 run_command 'for loc in "${LOCALES[@]}" ; do echo "$loc" | awk -F "[[:space:]]+" "{file=\"/usr/share/i18n/charmaps/\"\$2\".gz\"; system(\"gunzip --keep \"file)}" ; done;' 'BUG in locale-gen when using QEMU, unzip it manually - refer https://www.reddit.com/r/bashonubuntuonwindows/duplicates/65e36z/psa_localegen_is_bugged_solution_extract_the/' 
 run_command 'locale-gen' 'Generating locale' 
 
-show_main_step 'initialize pacman'
-run_command  ' pacman-key --init'                                                        ' Update pacman key'
-run_command  ' pacman -Syu'                                                              ' Updating packages'
-
 show_main_step 'handle users'
-run_command  'pacman -S sudo'
-run_command  ' userdel -r alarm'                                                         ' Delete user alarm'
+run_command  'pacman --needed -S sudo'
+if [ ${target_arch:0:3} == 'rpi' ]
+then
+  run_command  ' userdel -r alarm'                                                         ' Delete user alarm'
+fi
 run_command  ' read username'                                                            ' Please give your user name'
 run_command  ' useradd -m -G wheel -s /bin/bash $username'
 run_command  ' passwd $username'
@@ -131,7 +155,7 @@ run_command  ' sed -i -e "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/s
 run_command  ' usermod -a -G audio remi'                                                 ' add user $username to group audio'
 
 show_main_step 'install some useful packages with pacman'
-run_command 'pacman -S vim python python-pip python2 python2-pip avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base-devel distcc alsa-utils xorg-xauth opencv wget' 
+run_command 'pacman --needed -S vim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget' 
 
 show_main_step 'configuring ssh'
 run_command 'read enable_x11_forward' 'Do you want to enable X11 forwarding? \(y\)es / \(n\)o\)?'
@@ -183,8 +207,12 @@ then
   run_command 'echo -e "#Enable camera\nbcm2835-v412 >> /etc/modules-load.d/raspberrypi.conf"' 'Add v4l2 driver for camera' 
 else
   show_main_step 'Do non-Raspberry specific installation'
-  run_command 'pacman -S yaourt' 'Install yaourt'
-  run_command 'yaourt -S jre8'
+  #run_command 'pushd /tmp' 'installing yaourt from sources'
+  #run_command 'su $username -c "git clone https://aur.archlinux.org/package-query.git" && cd package-query'
+  #run_command 'su $username -c "makepkg -si" && cd ..'
+  #run_command 'su $username -c "git clone https://aur.archlinux.org/yaourt.git" && cd yaourt'
+  #run_command 'su $username -c "makepkg -si" && popd'
+  #run_command 'su $username -c "yaourt -S jre8"'
 fi
 
 run_command 'sed -i -e "s/^.*AutoEnable=.*/AutoEnable=true/" /etc/bluetooth/main.conf' 'enable automatic bluetooth power-on after boot'
@@ -197,17 +225,18 @@ then
 fi 
 run_command  ' systemctl enable avahi-daemon.service'       ' Enable mdns'
 run_command  ' systemctl enable bluetooth'                  ' enable bluetooth'
+run_command  ' systemctl enable sshd'                       ' enable sshd'
 
 show_main_step 'configuring graphic components'
 run_command 'read enable_x' 'Do you want to configure and enable X? \(y\)es / \(n\)o\)?'
 if [ "$enable_x" == 'y' ]
 then
-  run_command 'pacman -R netctl' 'remove netctl'
-  run_command 'pacman -S networkmanager xorg xfce4 plank accountsservice lightdm-gtk-greeter xorg-fonts-type1 ttf-dejavu artwiz-fonts font-bh-ttf  font-bitstream-speedo gsfonts sdl_ttf ttf-bitstream-vera  ttf-cheapskate ttf-liberation  ttf-freefont ttf-arphic-uming ttf-baekmuk network-manager-applet' 'installing graphic related packages'
+  run_command 'if pacman -Qs netctl > /dev/null ; then pacman -R netctl; fi;' 'remove netctl'
+  run_command 'pacman --needed -S networkmanager xorg xorg-twm xterm xorg-xclock mesa-demos xfce4 xfce4-goodies plank accountsservice lightdm-gtk-greeter xorg-fonts-type1 ttf-dejavu artwiz-fonts font-bh-ttf  font-bitstream-speedo gsfonts sdl_ttf ttf-bitstream-vera  ttf-cheapskate ttf-liberation  ttf-freefont ttf-arphic-uming ttf-baekmuk network-manager-applet meld' 'installing graphic related packages'
 fi
 
 show_main_step 'Successful initial install!!!!'
-if [[ $(ls -di) =~ ^2[[:space:]].*$ ]] 
+if [ $is_chroot -eq 1 ]
 then 
   show_warning    'Post install must be done runing archlinux_post_install.sh on target machine'
 fi

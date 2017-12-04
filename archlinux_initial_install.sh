@@ -7,7 +7,6 @@ source "$(dirname "$0")/archlinux_install_common.sh"
 KEYMAP=fr
 LOCALES=('en_US.UTF-8 UTF-8' 'fr_FR.UTF-8 UTF-8')
 LANG='en_US.UTF-8'
-DOT_FILES_URL='https://github.com/Lahorde/dotfiles'
 declare -A CONFIG_FILES
 CONFIG_FILES=()
 
@@ -155,7 +154,7 @@ run_command  ' sed -i -e "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/s
 run_command  ' usermod -a -G audio remi'                                                 ' add user $username to group audio'
 
 show_main_step 'install some useful packages with pacman'
-run_command 'pacman --needed -S vim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget' 
+run_command 'pacman --needed -S vim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget grub efibootmgr ifconfig' 
 
 show_main_step 'configuring ssh'
 run_command 'read enable_x11_forward' 'Do you want to enable X11 forwarding? \(y\)es / \(n\)o\)?'
@@ -207,12 +206,6 @@ then
   run_command 'echo -e "#Enable camera\nbcm2835-v412 >> /etc/modules-load.d/raspberrypi.conf"' 'Add v4l2 driver for camera' 
 else
   show_main_step 'Do non-Raspberry specific installation'
-  #run_command 'pushd /tmp' 'installing yaourt from sources'
-  #run_command 'su $username -c "git clone https://aur.archlinux.org/package-query.git" && cd package-query'
-  #run_command 'su $username -c "makepkg -si" && cd ..'
-  #run_command 'su $username -c "git clone https://aur.archlinux.org/yaourt.git" && cd yaourt'
-  #run_command 'su $username -c "makepkg -si" && popd'
-  #run_command 'su $username -c "yaourt -S jre8"'
 fi
 
 run_command 'sed -i -e "s/^.*AutoEnable=.*/AutoEnable=true/" /etc/bluetooth/main.conf' 'enable automatic bluetooth power-on after boot'
@@ -233,6 +226,7 @@ if [ "$enable_x" == 'y' ]
 then
   run_command 'if pacman -Qs netctl > /dev/null ; then pacman -R netctl; fi;' 'remove netctl'
   run_command 'pacman --needed -S networkmanager xorg xorg-twm xterm xorg-xclock mesa-demos xfce4 xfce4-goodies plank accountsservice lightdm-gtk-greeter xorg-fonts-type1 ttf-dejavu artwiz-fonts font-bh-ttf  font-bitstream-speedo gsfonts sdl_ttf ttf-bitstream-vera  ttf-cheapskate ttf-liberation  ttf-freefont ttf-arphic-uming ttf-baekmuk network-manager-applet meld' 'installing graphic related packages'
+run_command  ' systemctl enable NetworkManager'                       ' enable network manager'
 fi
 
 show_main_step 'Successful initial install!!!!'

@@ -77,6 +77,15 @@ fi
 show_main_step 'Doing other post install steps...'
 run_command 'sudo timedatectl set-ntp true' 'enable ntp synchro'
 
+run_command 'localectl --no-convert set-x11-keymap $KEYBOARD_LAYOUT $KEYBOARD_MODEL' 'set X11 keyboard layout'
+
+run_command 'pushd /tmp' 'installing yaourt from sources'
+run_command 'git clone https://aur.archlinux.org/package-query.git && cd package-query'
+run_command 'makepkg -si && cd ..'
+run_command 'git clone https://aur.archlinux.org/yaourt.git && cd yaourt'
+run_command 'makepkg -si && popd'
+run_command 'yaourt -S jre8'
+
 show_main_step 'Remove scripts from system'
 run_command 'for script in "${INSTALLED_FILES[@]}" ; do show_text "removing $script"; sudo rm $script; done;'
 

@@ -13,6 +13,7 @@ It partition disks, download target image file, mounts `/root` `/boot`
 
 #### x86_64
 Preinstall must be done manually. All steps from a host linux machine are described [in arch wiki](https://wiki.archlinux.org/index.php/Install_from_existing_Linux#Method_A:_Using_the_bootstrap_image_.28recommended.29)
+After [installing the base packages](https://wiki.archlinux.org/index.php/Installation_guide#Install_the_base_packages) you can run `archlinux_initial_install.sh x86_64`. 
 
 ### initial install
 During this step, system, network is configured, some useful packages are installed.

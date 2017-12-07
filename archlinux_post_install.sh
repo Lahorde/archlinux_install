@@ -12,6 +12,7 @@ source "$(dirname "$0")/archlinux_install_common.sh"
 DOT_FILES_URL="https://github.com/Lahorde/dotfiles"
 RPI3_BT_PACKAGES=('hciattach-rpi3' 'pi-bluetooth')
 AUR_PACKAGES=()
+KEYBOARD_LAYOUT='fr'
 
 function end
 {
@@ -51,7 +52,7 @@ then
   show_text "rasperry target architecture is $arch"
 fi
   
-run_command 'mkdir ~/projects'
+run_command 'mkdir -p ~/projects'
 run_command 'git clone $DOT_FILES_URL ~/projects/dotfiles' 'Cloning dot files'
 run_command '~/projects/dotfiles/install.sh'
 
@@ -72,20 +73,20 @@ then
   do 
     install_aur_package "$package"
   done
+else
+  run_command 'localectl --no-convert set-x11-keymap $KEYBOARD_LAYOUT' 'set X11 keyboard layout'
+
+  run_command 'pushd /tmp' 'installing yaourt from sources'
+  run_command 'git clone https://aur.archlinux.org/package-query.git && cd package-query'
+  run_command 'makepkg -si && cd ..'
+  run_command 'git clone https://aur.archlinux.org/yaourt.git && cd yaourt'
+  run_command 'makepkg -si && popd'
+  run_command 'yaourt -S jre8'
 fi
 
 show_main_step 'Doing other post install steps...'
 run_command 'sudo timedatectl set-ntp true' 'enable ntp synchro'
 
-run_command 'localectl --no-convert set-x11-keymap $KEYBOARD_LAYOUT $KEYBOARD_MODEL' 'set X11 keyboard layout'
-
-run_command 'pushd /tmp' 'installing yaourt from sources'
-run_command 'git clone https://aur.archlinux.org/package-query.git && cd package-query'
-run_command 'makepkg -si && cd ..'
-run_command 'git clone https://aur.archlinux.org/yaourt.git && cd yaourt'
-run_command 'makepkg -si && popd'
-run_command 'yaourt -S jre8'
-
 show_main_step 'Remove scripts from system'
-run_command 'for script in "${INSTALLED_FILES[@]}" ; do show_text "removing $script"; sudo rm $script; done;'
+#run_command 'for script in "${INSTALLED_FILES[@]}" ; do show_text "removing $script"; sudo rm $script; done;'
 

@@ -8,7 +8,9 @@ KEYMAP=fr
 LOCALES=('en_US.UTF-8 UTF-8' 'fr_FR.UTF-8 UTF-8')
 LANG='en_US.UTF-8'
 declare -A CONFIG_FILES
-CONFIG_FILES=()
+CONFIG_FILES=(['../config_files/netctl/home_remi']='/etc/netctl' \
+    ['../config_files/samba/smb.conf']='/etc/samba/'
+)
 
 function end
 {
@@ -17,6 +19,30 @@ function end
     umount /boot
   fi
   sync
+}
+
+function prepare_image
+{
+  root_dir='root'
+  if [ $target_arch == 'x86_64' ]
+  then
+    root_dir='root.x86_64'
+  fi
+
+  # Do all needed operations before installation in chrooted env or target 
+  show_text 'Copy all config files'
+  for config_file in ${!CONFIG_FILES[*]}
+  do
+    if [ ! -e "./${root_dir}${CONFIG_FILES[${config_file}]}" ]
+    then
+      run_command 'sudo mkdir -p "./${root_dir}${CONFIG_FILES[${config_file}]}"' 'Creating directory "./${root_dir}${CONFIG_FILES[${config_file}]}"'
+    fi
+    run_command 'sudo cp ${config_file} ./${root_dir}${CONFIG_FILES[${config_file}]}' 'Copying ${config_file} to ./${root_dir}${CONFIG_FILES[${config_file}]}'
+  done
+
+  run_command 'sudo cp $0 ./${root_dir}/bin' 'Copying install scripts to image'
+  run_command 'sudo cp "$(dirname "$0")/archlinux_install_common.sh" ./${root_dir}/bin'
+  run_command 'sudo cp ../archlinux_post_install.sh ./${root_dir}/bin' 
 }
 
 show_main_step 'Doing initial archlinux installation'
@@ -32,6 +58,15 @@ else
   exit 1
 fi
 
+host_arch=$(get_host_arch)
+if [ $host_arch == 'na' ]
+then
+  show_error 'host architecture not handled'
+  end
+  exit 1
+fi
+show_text "host architecture is $host_arch"
+
 # In some cases, testing whether we are in chroot with ls -di does not work
 # https://unix.stackexchange.com/questions/14345/how-do-i-tell-im-running-in-a-chroot
 # give chroot info using an chroot arg
@@ -41,7 +76,6 @@ then
   is_chroot=1
 fi
 
-
 ###################################
 #  Prepare chrooting              #
 ###################################
@@ -50,29 +84,12 @@ then
   run_command 'read resp' 'Do you want to do initial installation in a chrooted environment? \(y\)es / \(n\)o\)?'
   if [ "$resp" == 'y' ]
   then
-    root_dir='root'
-    chroot_cmd='arch_chroot'
+    chroot_cmd='arch-chroot'
     if [ $target_arch == 'x86_64' ]
     then
-      root_dir='root.x86_64'
       chroot_cmd="${root_dir}/bin/arch-chroot"
     fi
-
-    # Do all needed operations before chrooting
-    show_main_step 'Prepare chroot environment'
-    show_text 'Copy all config files'
-    for config_file in ${!CONFIG_FILES[*]}
-    do
-      if [ ! -e "./${root_dir}${CONFIG_FILES[${config_file}]}" ]
-      then
-        run_command 'sudo mkdir -p "./${root_dir}${CONFIG_FILES[${config_file}]}"' 'Creating directory "./${root_dir}${CONFIG_FILES[${config_file}]}"'
-      fi
-      run_command 'sudo cp ${config_file} ./${root_dir}${CONFIG_FILES[${config_file}]}' 'Copying ${config_file} to ./${root_dir}${CONFIG_FILES[${config_file}]}'
-    done
-
-    run_command 'sudo cp $0 ./${root_dir}/bin' 'Copying install script to chroot image'
-    run_command 'sudo cp "$(dirname "$0")/archlinux_install_common.sh" ./${root_dir}/bin' 'Copying install script to chroot image'
-    run_command 'sudo cp ../archlinux_post_install.sh ./${root_dir}/bin' 'Copying post-install script to chroot image'
+    prepare_image
 
     if [ ${target_arch:0:3} == 'rpi' ]
     then
@@ -101,6 +118,11 @@ then
     run_command 'sudo  $chroot_cmd ${root_dir}/ /bin/archlinux_initial_install.sh $target_arch chroot' 'Chrooting...'
     end
     exit 0
+  elif [ ${target_arch:0:3} == 'rpi' ] && [ $host_arch != $target_arch ]
+  then
+    prepare_image
+    show_text 'Now you must connect your raspberry to a network and launch this script loging with login : alarm, pass : alarm'
+    exit 0
   else
     show_text 'No config file to copy'
   fi
@@ -112,9 +134,10 @@ fi
 #  All following commands run in newly created system    #
 ##########################################################
 show_main_step 'initialize pacman'
+run_command  'pacman -Sy'
 run_command  ' pacman-key --init'                                                        ' Update pacman key'
-run_command  ' pacman-key --populate archlinux'
-run_command  ' pacman -Syu'                                                              ' Updating packages'
+run_command  ' pacman --needed -S archlinux-keyring'
+run_command  ' pacman -Su'                                                              ' Updating packages'
 run_command  ' pacman --needed -S sed less awk gzip'                                          ' Installing required packages for install'
 if [ "$target_arch" == 'x86_64' ]
 then
@@ -125,11 +148,11 @@ then
 fi
 
 show_main_step 'configuring locales, machine name...'
-if [ ${target_arch:0:3} == 'rpi' ]
+if [ ${target_arch:0:3} == 'rpi' ] && [ $is_chroot -eq 1 ]
 then
   run_command  ' mount /boot'                                                                                                         ' Mounting /boot'
 fi
-#run_command  ' passwd'                                                                                                              ' Changing root password'
+run_command  ' passwd'                                                                                                              ' Changing root password'
 run_command  ' echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf'                                                                          ' Changing keymap to FR'
 run_command  ' ln -fs /usr/share/zoneinfo/Europe/Paris /etc/localtime'                                                              ' Set timezone to Paris'
 run_command  ' dircolors --print-database > /etc/DIR_COLORS'                                                                        ' Get colors for ls'
@@ -145,7 +168,7 @@ show_main_step 'handle users'
 run_command  'pacman --needed -S sudo'
 if [ ${target_arch:0:3} == 'rpi' ]
 then
-  run_command  ' userdel -r alarm'                                                         ' Delete user alarm'
+  run_command  ' userdel -f -r alarm'                                                         ' Delete user alarm'
 fi
 run_command  ' read username'                                                            ' Please give your user name'
 run_command  ' useradd -m -G wheel -s /bin/bash $username'
@@ -154,8 +177,7 @@ run_command  ' sed -i -e "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/s
 run_command  ' usermod -a -G audio remi'                                                 ' add user $username to group audio'
 
 show_main_step 'install some useful packages with pacman'
-run_command 'pacman --needed -S vim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget grub efibootmgr ifconfig'
-
+run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools'
 show_main_step 'configuring ssh'
 run_command 'read enable_x11_forward' 'Do you want to enable X11 forwarding? \(y\)es / \(n\)o\)?'
 if [ "$enabl_x11_forward" == 'y' ]
@@ -187,12 +209,12 @@ then
   run_command 'pacman -S i2c-tools' 'Install Raspberry specific packages'
   if [[ $target_arch =~ ^rpi_armv[6,7]^ ]]
   then
-    run_command 'pacman -S wiringpi' 'Install Raspberry armv6/v7 specific packages'
+    run_command 'pacman --needed -S wiringpi' 'Install Raspberry armv6/v7 specific packages'
   fi
 
   if [[ $target_arch =~ ^rpi_armv[7,8]^ ]]
   then
-    run_command 'pacman -S wiringpi' 'Install bluetooth packages for Raspberry 3'
+    run_command 'pacman --needed -S wiringpi' 'Install bluetooth packages for Raspberry 3'
     run_command 'systemctl enable brcm43438.service' 'enable rpi3 bluetooth service'
     run_command 'rm /etc/udev/rules.d/50-bluetooth-hci-auto-poweron.rules' 'remove out of date bluetooth rule'
   fi
@@ -206,16 +228,12 @@ then
   run_command 'echo -e "#Enable camera\nbcm2835-v412 >> /etc/modules-load.d/raspberrypi.conf"' 'Add v4l2 driver for camera'
 else
   show_main_step 'Do non-Raspberry specific installation'
+  run_command 'pacman --needed -S grub' 'install some missing packages in non raspberry image' 
 fi
 
 run_command 'sed -i -e "s/^.*AutoEnable=.*/AutoEnable=true/" /etc/bluetooth/main.conf' 'enable automatic bluetooth power-on after boot'
 
 show_main_step 'Enable systemd services'
-run_command 'read wifi_connect' 'Do you want to configure and enable wifi connection using wlan0? \(y\)es / \(n\)o\)?'
-if [ "$wifi_connect" == 'y' ]
-then
-  run_command  ' systemctl enable netctl-auto@wlan0.service'  ' Enable netctl auto connection using wlan0'
-fi
 run_command  ' systemctl enable avahi-daemon.service'       ' Enable mdns'
 run_command  ' systemctl enable bluetooth'                  ' enable bluetooth'
 run_command  ' systemctl enable sshd'                       ' enable sshd'
@@ -225,8 +243,16 @@ run_command 'read enable_x' 'Do you want to configure and enable X? \(y\)es / \(
 if [ "$enable_x" == 'y' ]
 then
   run_command 'if pacman -Qs netctl > /dev/null ; then pacman -R netctl; fi;' 'remove netctl'
-  run_command 'pacman --needed -S networkmanager xorg xorg-twm xterm xorg-xclock mesa-demos xfce4 xfce4-goodies plank accountsservice lightdm-gtk-greeter xorg-fonts-type1 ttf-dejavu artwiz-fonts font-bh-ttf  font-bitstream-speedo gsfonts sdl_ttf ttf-bitstream-vera  ttf-cheapskate ttf-liberation  ttf-freefont ttf-arphic-uming ttf-baekmuk network-manager-applet meld autofs gvfs adobe-source-sans-pro-fonts' 'installing graphic related packages'
-run_command  ' systemctl enable NetworkManager'                       ' enable network manager'
+  run_command 'pacman --needed -S networkmanager xorg xorg-twm xterm xorg-xclock mesa-demos xfce4 xfce4-goodies plank accountsservice lightdm-gtk-greeter xorg-fonts-type1 ttf-dejavu artwiz-fonts font-bh-ttf  font-bitstream-speedo gsfonts sdl_ttf ttf-bitstream-vera  ttf-cheapskate ttf-liberation  ttf-freefont ttf-arphic-uming ttf-baekmuk network-manager-applet meld autofs gvfs ntfs-3g adobe-source-sans-pro-fonts' 'installing graphic related packages'
+  run_command  ' systemctl enable NetworkManager'                       ' enable network manager'
+else
+  run_command 'read wifi_connect' 'Do you want to configure and enable wifi connection with netctl using wlan0? \(y\)es / \(n\)o\)?'
+  if [ "$wifi_connect" == 'y' ]
+  then
+    run_command  ' systemctl enable netctl-auto@wlan0.service'  ' Enable netctl auto connection using wlan0'
+  fi
+  run_command 'systemctl disable systemd-networkd.service' 'disable networkd to only use netctl'
+  run_command 'systemctl enable netctl-ifplugd@eth0.service' 'enable eth connectin using netctl'  
 fi
 
 show_main_step 'Successful initial install!!!!'

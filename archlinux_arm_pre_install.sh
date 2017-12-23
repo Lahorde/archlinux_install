@@ -119,5 +119,6 @@ fi
 
 run_command 'sudo bsdtar -xpf  ${arm_files[(($arm_version - 1))]} -C root' 'Extracting archive ${arm_files[(($arm_version - 1))]} ...'
 run_command 'sync' 'syncing'
+run_command 'sudo mv root/boot/* boot' 'moving boot folder to boot partition'
 run_command 'bash ../archlinux_initial_install.sh ${arm_target[(($arm_version - 1))]}'
 end

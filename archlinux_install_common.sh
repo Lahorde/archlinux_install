@@ -61,4 +61,27 @@ function run_command
   fi
 }
 
-
+function get_host_arch 
+{
+  if cat /proc/device-tree/model 2> /dev/null |grep -qi 'raspberry pi'
+  then
+    run_command 'res=$(uname -a)' 
+    if [[ "$res" =~ ^.*[[:space:]]armv6l[[:space:]].* ]]
+    then
+      echo 'rpi_armv6'
+    elif [[ "$res" =~ ^.*[[:space:]]armv7l[[:space:]].* ]]
+    then
+      echo 'rpi_armv7'
+    elif [[ "$res" =~ ^.*[[:space:]]aarch64[[:space:]].* ]]
+    then
+      echo'rpi_armv8'
+    else
+      echo 'na'
+    fi
+  elif uname -a |grep -q 'x86_64' 
+  then
+    echo 'x86_64'
+  else
+    echo 'na'
+  fi
+}

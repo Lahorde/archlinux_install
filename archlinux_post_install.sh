@@ -34,23 +34,15 @@ INSTALLED_FILES=("$(dirname "$0")/archlinux_install_common.sh" "$(dirname "$0")/
 
 show_main_step 'Doing post install - add your dotfiles'
 
-arch=""
-if cat /proc/device-tree/model 2> /dev/null |grep -i "raspberry pi"
+arch=$(get_host_arch)
+if [ $host_arch == 'na' ]
 then
-  show_text 'target is a raspberry'
-  run_command 'res=$(uname -a)' 
-  if [[ "$res" =~ ^.*[[:space:]]armv6l[[:space:]].* ]]
-  then
-    arch='rpi_armv6'
-  elif [[ "$res" =~ ^.*[[:space:]]armv7l[[:space:]].* ]]
-  then
-    arch='rpi_armv7'
-  elif [[ "$res" =~ ^.*[[:space:]]aarch64[[:space:]].* ]]
-  then
-    arch='rpi_armv8'
-  fi
-  show_text "rasperry target architecture is $arch"
+  show_error 'host architecture not handled'
+  end
+  exit 1
 fi
+show_text "host architecture is $host_arch"
+
   
 run_command 'mkdir -p ~/projects'
 run_command 'git clone $DOT_FILES_URL ~/projects/dotfiles' 'Cloning dot files'
@@ -63,6 +55,7 @@ then
   do 
     install_aur_package "$package" 
   done
+  run_command 'sudo gpasswd -a $USER lp' 'add user $USER to lp group'
   run_command 'sudo systemctl enable brcm43438' 'enable brcm43428 service' 
 fi 
 
@@ -88,5 +81,5 @@ show_main_step 'Doing other post install steps...'
 run_command 'sudo timedatectl set-ntp true' 'enable ntp synchro'
 
 show_main_step 'Remove scripts from system'
-#run_command 'for script in "${INSTALLED_FILES[@]}" ; do show_text "removing $script"; sudo rm $script; done;'
+run_command 'for script in "${INSTALLED_FILES[@]}" ; do show_text "removing $script"; sudo rm $script; done;'
 

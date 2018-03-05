@@ -177,7 +177,7 @@ run_command  ' sed -i -e "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/s
 run_command  ' usermod -a -G audio remi'                                                 ' add user $username to group audio'
 
 show_main_step 'install some useful packages with pacman'
-run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools'
+run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools wireless_tools gstreamer  gst-plugins-base gst-lugins-good gst-plugins-ugly gst-plugins-bad ntfs-3g dnsutils mlocate'
 show_main_step 'configuring ssh'
 run_command 'read enable_x11_forward' 'Do you want to enable X11 forwarding? \(y\)es / \(n\)o\)?'
 if [ "$enabl_x11_forward" == 'y' ]
@@ -187,6 +187,8 @@ then
   run_command 'sed -i "s/#X11UseLocalhost.*$/X11UseLocalhost yes/" /etc/ssh/sshd_config'
   run_command 'sed -i "s/#X11DisplayOffset.*$/X11DisplayOffset 10/" /etc/ssh/sshd_config'
 fi
+
+run_command 'updatedb' 'update locate db'
 
 show_main_step 'configuring avahi'
 run_command 'sed -i "s/^hosts: files mymachines resolve \[!UNAVAIL=return\] dns myhostname$/hosts: files mdns_minimal \[NOTFOUND=return\] dns/" /etc/nsswitch.conf' 'Configure nsswitch.conf for avahi'
@@ -245,12 +247,20 @@ then
   run_command 'if pacman -Qs netctl > /dev/null ; then pacman -R netctl; fi;' 'remove netctl'
   run_command 'pacman --needed -S networkmanager xorg xorg-twm xterm xorg-xclock mesa-demos xfce4 xfce4-goodies plank accountsservice lightdm-gtk-greeter xorg-fonts-type1 ttf-dejavu artwiz-fonts font-bh-ttf  font-bitstream-speedo gsfonts sdl_ttf ttf-bitstream-vera  ttf-cheapskate ttf-liberation  ttf-freefont ttf-arphic-uming ttf-baekmuk network-manager-applet meld autofs gvfs ntfs-3g adobe-source-sans-pro-fonts' 'installing graphic related packages'
   run_command  ' systemctl enable NetworkManager'                       ' enable network manager'
+
+  # pulseaudio can be useful in a graphical environment, many applications use it
+  run_command 'read use_pulse' 'Do you want to use pulseaudio above alsa? \(y\)es / \(n\)o\)?'
+  if [ "$use_pulse" == 'y' ]
+  then
+    run_command 'pacman --needed -S pulseaudio pulseaudio-bluetooth pavucontrol paprefs' 'installing pulse'
+  fi
 else
   run_command 'read wifi_connect' 'Do you want to configure and enable wifi connection with netctl using wlan0? \(y\)es / \(n\)o\)?'
   if [ "$wifi_connect" == 'y' ]
   then
     run_command  ' systemctl enable netctl-auto@wlan0.service'  ' Enable netctl auto connection using wlan0'
   fi
+  run_command 'pacman -S ifplugd' 'Install ifplugd - needed for netctl eth'
   run_command 'systemctl disable systemd-networkd.service' 'disable networkd to only use netctl'
   run_command 'systemctl enable netctl-ifplugd@eth0.service' 'enable eth connectin using netctl'  
 fi

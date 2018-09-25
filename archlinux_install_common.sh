@@ -8,6 +8,7 @@ RED='\e[0;31m'
 GREEN='\e[32m'
 BOLD='\e[1m'
 NORMAL='\e[0m' # Reset all
+CONFIRM='[ Y(es)/s(kip)/Q(uit) ]'
 
 function show_text
 {
@@ -29,6 +30,21 @@ function show_main_step
   echo -e "${BOLD}${GREEN}$1${NORMAL}" 
 }
 
+function confirm_main_step
+{
+  echo -e "${BOLD}${GREEN}$1 $CONFIRM ${NORMAL}" 
+  read -s -n1 confirm
+
+  if [[ ${confirm^^} == "S" ]]
+  then
+    return 1
+  elif [[ ${confirm^^} == "Q" ]]
+  then
+    end
+    exit 1
+  fi
+}
+
 function run_command 
 {
   if [ "$#" -eq 2 ]
@@ -45,6 +61,35 @@ function run_command
   fi
 }
 
+function confirm_command 
+{
+  if [ "$#" -ne 2  ]
+  then
+    show_error "A command and its description must be given"
+    end
+    exit 1
+  fi
+
+  echo -n "  > " 
+  eval "echo -ne "$2""
+  echo $CONFIRM
+  read -s -n1 confirm
+
+  if [[ ${confirm^^} == "Y" ]]
+  then
+    if ! eval "$1" 
+    then
+      show_error "Error when executing $1 - exiting"
+      end
+      exit 1
+    fi
+  elif [[ ${confirm^^} == "Q" ]]
+  then
+    end
+    exit 1
+  fi
+}
+
 function run_command 
 {
   if [ "$#" -eq 2 ]
@@ -55,7 +100,7 @@ function run_command
   
   if ! eval "$1" 
   then
-    echo "Error when executing $1 - exiting"
+    show_error "Error when executing $1 - exiting"
     end
     exit 1
   fi

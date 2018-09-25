@@ -133,75 +133,87 @@ fi
 ##########################################################
 #  All following commands run in newly created system    #
 ##########################################################
-show_main_step 'initialize pacman'
-run_command  'pacman -Sy'
-run_command  ' pacman-key --init'                                                        ' Update pacman key'
-run_command  ' pacman --needed -S archlinux-keyring'
-run_command  ' pacman -Su'                                                              ' Updating packages'
-run_command  ' pacman --needed -S sed less awk gzip'                                          ' Installing required packages for install'
-if [ "$target_arch" == 'x86_64' ]
+if confirm_main_step 'initialize pacman'
 then
-  show_text 'all pacman mirrors commented in x86_64 image, rank it by their speed'
-  run_command  'cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup'
-  run_command  'sed -i "s/^#Server/Server/" /etc/pacman.d/mirrorlist.backup'
-  run_command  'rankmirrors -n 6 /etc/pacman.d/mirrorlist.backup > /etc/pacman.d/mirrorlist'
+  run_command  'pacman -Sy'
+  run_command  ' pacman-key --init'                                                         ' Update pacman key'
+  run_command  ' pacman --needed -S pacman-contrib archlinux-keyring perl'
+  run_command  'perl -i -0pe "s/#(\[multilib\]\n)#(Include)/\1\2/" /etc/pacman.conf'        'add multilib repo to pacman'
+  run_command  ' pacman -Syu'                                                               ' Updating packages'
+  run_command  ' pacman --needed -S sed less awk gzip '                                     ' Installing required packages for install'
+
+  if [ "$target_arch" == 'x86_64' ]
+  then
+    show_text 'all pacman mirrors commented in x86_64 image, rank it by their speed'
+    run_command  'cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup'
+    run_command  'sed -i "s/^#Server/Server/" /etc/pacman.d/mirrorlist.backup'
+    run_command  'rankmirrors -n 6 /etc/pacman.d/mirrorlist.backup > /etc/pacman.d/mirrorlist'
+  fi
 fi
 
-show_main_step 'configuring locales, machine name...'
-if [ ${target_arch:0:3} == 'rpi' ] && [ $is_chroot -eq 1 ]
+if confirm_main_step 'configuring locales, machine name...'
 then
-  run_command  ' mount /boot'                                                                                                         ' Mounting /boot'
+  if [ ${target_arch:0:3} == 'rpi' ] && [ $is_chroot -eq 1 ]
+  then
+    run_command  ' mount /boot'                                                                                                         ' Mounting /boot'
+  fi
+  run_command  ' passwd'                                                                                                              ' Changing root password'
+  run_command  ' echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf'                                                                          ' Changing keymap to FR'
+  run_command  ' ln -fs /usr/share/zoneinfo/Europe/Paris /etc/localtime'                                                              ' Set timezone to Paris'
+  run_command  ' dircolors --print-database > /etc/DIR_COLORS'                                                                        ' Get colors for ls'
+  run_command  ' read machine_name'                                                                                                   ' Please give a machine name :'
+  run_command  ' echo $machine_name > /etc/hostname'                                                                                  ' Set machine name'
+  run_command  ' sed -r -i -e "/127\.0\.0\.1[[:space:]]+localhost\.localdomain[[:space:]]+localhost/s/$/ $machine_name/" /etc/hosts'
+  run_command  ' echo LANG=$LANG  > /etc/locale.conf'                                                                                 ' Set LANG'
+  run_command  ' for loc in "${LOCALES[@]}"; do sed -i -e "s/#$loc/$loc/" /etc/locale.gen ; echo "Set locale $loc"; done;'
+  run_command 'for loc in "${LOCALES[@]}" ; do echo "$loc" | awk -F "[[:space:]]+" "{file=\"/usr/share/i18n/charmaps/\"\$2\".gz\"; system(\"gunzip --keep \"file)}" ; done;' 'BUG in locale-gen when using QEMU, unzip it manually - refer https://www.reddit.com/r/bashonubuntuonwindows/duplicates/65e36z/psa_localegen_is_bugged_solution_extract_the/'
+  run_command 'locale-gen' 'Generating locale'
 fi
-run_command  ' passwd'                                                                                                              ' Changing root password'
-run_command  ' echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf'                                                                          ' Changing keymap to FR'
-run_command  ' ln -fs /usr/share/zoneinfo/Europe/Paris /etc/localtime'                                                              ' Set timezone to Paris'
-run_command  ' dircolors --print-database > /etc/DIR_COLORS'                                                                        ' Get colors for ls'
-run_command  ' read machine_name'                                                                                                   ' Please give a machine name :'
-run_command  ' echo $machine_name > /etc/hostname'                                                                                  ' Set machine name'
-run_command  ' sed -r -i -e "/127\.0\.0\.1[[:space:]]+localhost\.localdomain[[:space:]]+localhost/s/$/ $machine_name/" /etc/hosts'
-run_command  ' echo LANG=$LANG  > /etc/locale.conf'                                                                                 ' Set LANG'
-run_command  ' for loc in "${LOCALES[@]}"; do sed -i -e "s/#$loc/$loc/" /etc/locale.gen ; echo "Set locale $loc"; done;'
-run_command 'for loc in "${LOCALES[@]}" ; do echo "$loc" | awk -F "[[:space:]]+" "{file=\"/usr/share/i18n/charmaps/\"\$2\".gz\"; system(\"gunzip --keep \"file)}" ; done;' 'BUG in locale-gen when using QEMU, unzip it manually - refer https://www.reddit.com/r/bashonubuntuonwindows/duplicates/65e36z/psa_localegen_is_bugged_solution_extract_the/'
-run_command 'locale-gen' 'Generating locale'
 
-show_main_step 'handle users'
-run_command  'pacman --needed -S sudo'
-if [ ${target_arch:0:3} == 'rpi' ]
+if confirm_main_step 'handle users'
 then
-  run_command  ' userdel -f -r alarm'                                                         ' Delete user alarm'
+  run_command  'pacman --needed -S sudo'
+  if [ ${target_arch:0:3} == 'rpi' ]
+  then
+    run_command  ' userdel -f -r alarm'                                                         ' Delete user alarm'
+  fi
+  run_command  ' read username'                                                            ' Please give your user name'
+  run_command  ' useradd -m -G wheel -s /bin/bash $username'
+  run_command  ' passwd $username'
+  run_command  ' sed -i -e "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers'  ' allow members of group wheel to execute any command'
+  run_command  ' usermod -a -G audio $user'                                                 ' add user $username to group audio'
 fi
-run_command  ' read username'                                                            ' Please give your user name'
-run_command  ' useradd -m -G wheel -s /bin/bash $username'
-run_command  ' passwd $username'
-run_command  ' sed -i -e "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers'  ' allow members of group wheel to execute any command'
-run_command  ' usermod -a -G audio remi'                                                 ' add user $username to group audio'
 
-show_main_step 'install some useful packages with pacman'
-run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools wireless_tools gstreamer  gst-plugins-base gst-lugins-good gst-plugins-ugly gst-plugins-bad ntfs-3g dnsutils mlocate'
-show_main_step 'configuring ssh'
-run_command 'read enable_x11_forward' 'Do you want to enable X11 forwarding? \(y\)es / \(n\)o\)?'
-if [ "$enabl_x11_forward" == 'y' ]
-then
-  run_command 'sed -i "s/#X11Forwarding.*$/X11Forwarding yes/" /etc/ssh/sshd_config' 'Enable X11 forwarding over ssh'
-  run_command 'sed -i "s/#AllowTcpForwarding.*$/AllowTcpForwarding yes/" /etc/ssh/sshd_config'
-  run_command 'sed -i "s/#X11UseLocalhost.*$/X11UseLocalhost yes/" /etc/ssh/sshd_config'
-  run_command 'sed -i "s/#X11DisplayOffset.*$/X11DisplayOffset 10/" /etc/ssh/sshd_config'
+if confirm_main_step 'install some useful packages with pacman'
+  run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools wireless_tools gstreamer  gst-plugins-base gst-plugins-good gst-plugins-ugly gst-plugins-bad ntfs-3g dnsutils mlocate'
+  show_main_step 'configuring ssh'
+  run_command 'read enable_x11_forward' 'Do you want to enable X11 forwarding? \(y\)es / \(n\)o\)?'
+  if [ "$enabl_x11_forward" == 'y' ]
+  then
+    run_command 'sed -i "s/#X11Forwarding.*$/X11Forwarding yes/" /etc/ssh/sshd_config' 'Enable X11 forwarding over ssh'
+    run_command 'sed -i "s/#AllowTcpForwarding.*$/AllowTcpForwarding yes/" /etc/ssh/sshd_config'
+    run_command 'sed -i "s/#X11UseLocalhost.*$/X11UseLocalhost yes/" /etc/ssh/sshd_config'
+    run_command 'sed -i "s/#X11DisplayOffset.*$/X11DisplayOffset 10/" /etc/ssh/sshd_config'
+  fi
 fi
 
 run_command 'updatedb' 'update locate db'
 
-show_main_step 'configuring avahi'
-run_command 'sed -i "s/^hosts: files mymachines resolve \[!UNAVAIL=return\] dns myhostname$/hosts: files mdns_minimal \[NOTFOUND=return\] dns/" /etc/nsswitch.conf' 'Configure nsswitch.conf for avahi'
-
-show_main_step 'configuring samba'
-run_command 'read enable_samba' 'Do you want to configure and enable samba shares? \(y\)es / \(n\)o\)?'
-if [ "$enable_samba" == 'y' ]
+if confirm_main_step 'configuring avahi'
 then
-  run_command 'read samba_group' 'please enter a samba group name'
-  run_command 'groupadd $samba_group'
-  run_command 'usermod -a -G $samba_group $username' 'add $username to group $samba_group'
-  run_command 'smbpasswd -a $username' 'add user $username to samba users'
-  run_command 'systemctl enable smbd' 'enable samba'
+  run_command 'sed -i "s/^hosts:.*dns.*$/hosts: files mdns_minimal \[NOTFOUND=return\] dns/" /etc/nsswitch.conf' 'Configure nsswitch.conf for avahi'
+fi
+
+if confirm_main_step 'configuring samba'
+  run_command 'read enable_samba' 'Do you want to configure and enable samba shares? \(y\)es / \(n\)o\)?'
+  if [ "$enable_samba" == 'y' ]
+  then
+    run_command 'read samba_group' 'please enter a samba group name'
+    run_command 'groupadd $samba_group'
+    run_command 'usermod -a -G $samba_group $username' 'add $username to group $samba_group'
+    run_command 'smbpasswd -a $username' 'add user $username to samba users'
+    run_command 'systemctl enable smbd' 'enable samba'
+  fi
 fi
 
 # RPI specific
@@ -233,7 +245,7 @@ else
   run_command 'pacman --needed -S grub' 'install some missing packages in non raspberry image' 
 fi
 
-run_command 'sed -i -e "s/^.*AutoEnable=.*/AutoEnable=true/" /etc/bluetooth/main.conf' 'enable automatic bluetooth power-on after boot'
+confirm_command 'sed -i -e "s/^.*AutoEnable=.*/AutoEnable=true/" /etc/bluetooth/main.conf' 'enable automatic bluetooth power-on after boot'
 
 show_main_step 'Enable systemd services'
 run_command  ' systemctl enable avahi-daemon.service'       ' Enable mdns'

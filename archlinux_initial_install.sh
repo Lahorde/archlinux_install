@@ -181,10 +181,11 @@ then
   run_command  ' useradd -m -G wheel -s /bin/bash $username'
   run_command  ' passwd $username'
   run_command  ' sed -i -e "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers'  ' allow members of group wheel to execute any command'
-  run_command  ' usermod -a -G audio $user'                                                 ' add user $username to group audio'
+  run_command  ' usermod -a -G audio $username'                                                 ' add user $username to group audio'
 fi
 
 if confirm_main_step 'install some useful packages with pacman'
+then
   run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools wireless_tools gstreamer  gst-plugins-base gst-plugins-good gst-plugins-ugly gst-plugins-bad ntfs-3g dnsutils mlocate'
   show_main_step 'configuring ssh'
   run_command 'read enable_x11_forward' 'Do you want to enable X11 forwarding? \(y\)es / \(n\)o\)?'
@@ -205,6 +206,7 @@ then
 fi
 
 if confirm_main_step 'configuring samba'
+then
   run_command 'read enable_samba' 'Do you want to configure and enable samba shares? \(y\)es / \(n\)o\)?'
   if [ "$enable_samba" == 'y' ]
   then

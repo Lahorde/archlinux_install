@@ -29,8 +29,12 @@ Configuration (language, configuration files ... ) must be set in script head ac
 This step can either be run in a chrooted env or on target system.
 
 #### Raspberry initial install
-Due to qemu bugs, **installing arch in a chrooted environment is not reliable** Some systems calls done are not supported. A better but slower solution is install it on a running target. Just launch 
-`archlinux_initial_install.sh target_arch` on your running arm system.
+Due to qemu bugs, **installing arch in a chrooted environment is not reliable** Some systems calls done are not supported. A better but slower solution is install it on a running target. Just log as root user and launch 
+`archlinux_initial_install.sh target_arch` on your running arm system/
+target arch can be :
+ * rpi_armv6
+ * rpi_armv7
+ * rpi_armv8
 
 ### post install
 During this step, additional install configuration is done. In chrooted environment, DBUS is not present. So, in this step, done with `archlinux_post_install.sh` must be done in target environment.

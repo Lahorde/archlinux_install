@@ -19,15 +19,18 @@ trap end INT
 
 function end 
 {
-  if sudo mount | grep ${system_disk_path}p1
-  then 
-    sudo umount ${system_disk_path}p1
+  if [ -n "$system_disk_path" ]
+  then
+    if mount | grep ${system_disk_path}p1 > /dev/null
+    then 
+      sudo umount ${system_disk_path}p1
+    fi
+    if mount | grep ${system_disk_path}p2 > /dev/null
+    then 
+      sudo umount ${system_disk_path}p2
+    fi
+    sync  
   fi
-  if sudo mount | grep ${system_disk_path}p2
-  then 
-    sudo umount ${system_disk_path}p2
-  fi
-  sync  
 }
 
 RO_PARTITION_CMD='+3G
@@ -44,7 +47,7 @@ p
 
 ro_partitions=1
 
-show_man_step "Prepare disk"
+show_main_step "Prepare disk"
 run_command 'run_command lsblk' 'First steps : flashing the image :'
 run_command 'read system_disk_path' 'Enter device name :'
 system_disk_path="/dev/$system_disk_path"

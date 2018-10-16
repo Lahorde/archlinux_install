@@ -80,6 +80,8 @@ fi
 show_main_step 'Doing other post install steps...'
 run_command 'sudo timedatectl set-ntp true' 'enable ntp synchro'
 
-show_main_step 'Remove scripts from system'
-run_command 'for script in "${INSTALLED_FILES[@]}" ; do show_text "removing $script"; sudo rm $script; done;'
+if confirm_main_step 'Remove scripts from system' 
+then
+  run_command 'for script in "${INSTALLED_FILES[@]}" ; do show_text "removing $script"; sudo rm $script; done;'
+fi
 

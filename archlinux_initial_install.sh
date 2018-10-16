@@ -6,10 +6,10 @@ source "$(dirname "$0")/archlinux_install_common.sh"
 ###################################
 KEYMAP=fr
 LOCALES=('en_US.UTF-8 UTF-8' 'fr_FR.UTF-8 UTF-8')
-LANG='en_US.UTF-8'
+LANG='fr_FR.UTF-8'
 declare -A CONFIG_FILES
-CONFIG_FILES=(['../config_files/netctl/home_remi']='/etc/netctl' \
-    ['../config_files/samba/smb.conf']='/etc/samba/'
+CONFIG_FILES=(['../config_files/netctl/home_remi']='/etc/netctl' #\
+   # ['../config_files/samba/smb.conf']='/etc/samba/'
 )
 
 function end
@@ -40,9 +40,9 @@ function prepare_image
     run_command 'sudo cp ${config_file} ./${root_dir}${CONFIG_FILES[${config_file}]}' 'Copying ${config_file} to ./${root_dir}${CONFIG_FILES[${config_file}]}'
   done
 
-  run_command 'sudo cp $0 ./${root_dir}/bin' 'Copying install scripts to image'
-  run_command 'sudo cp "$(dirname "$0")/archlinux_install_common.sh" ./${root_dir}/bin'
-  run_command 'sudo cp ../archlinux_post_install.sh ./${root_dir}/bin' 
+  run_command 'sudo cp $0 ./${root_dir}/usr/local/bin' 'Copying install scripts to image'
+  run_command 'sudo cp "$(dirname "$0")/archlinux_install_common.sh" ./${root_dir}/usr/local/bin'
+  run_command 'sudo cp ../archlinux_post_install.sh ./${root_dir}/usr/local/bin' 
 }
 
 show_main_step 'Doing initial archlinux installation'
@@ -115,7 +115,7 @@ then
       end
       exit 1
     fi
-    run_command 'sudo  $chroot_cmd ${root_dir}/ /bin/archlinux_initial_install.sh $target_arch chroot' 'Chrooting...'
+    run_command 'sudo  $chroot_cmd ${root_dir}/ /usr/local/bin/archlinux_initial_install.sh $target_arch chroot' 'Chrooting...'
     end
     exit 0
   elif [ ${target_arch:0:3} == 'rpi' ] && [ $host_arch != $target_arch ]
@@ -136,18 +136,19 @@ fi
 if confirm_main_step 'initialize pacman'
 then
   run_command  'pacman -Sy'
-  run_command  ' pacman-key --init'                                                         ' Update pacman key'
-  run_command  ' pacman --needed -S pacman-contrib archlinux-keyring perl'
-  run_command  'perl -i -0pe "s/#(\[multilib\]\n)#(Include)/\1\2/" /etc/pacman.conf'        'add multilib repo to pacman'
-  run_command  ' pacman -Syu'                                                               ' Updating packages'
-  run_command  ' pacman --needed -S sed less awk gzip '                                     ' Installing required packages for install'
+  run_command  'pacman-key --init'                                                         ' Update pacman key'
+  run_command  'pacman --needed -S archlinux-keyring'
+  run_command  'pacman -Syu'                                                               ' Updating packages'
+  run_command  'pacman --needed -S sed less awk gzip '                                     ' Installing required packages for install'
 
   if [ "$target_arch" == 'x86_64' ]
   then
     show_text 'all pacman mirrors commented in x86_64 image, rank it by their speed'
+    run_command  'pacman --needed -S pacman-contrib perl'
     run_command  'cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.backup'
     run_command  'sed -i "s/^#Server/Server/" /etc/pacman.d/mirrorlist.backup'
     run_command  'rankmirrors -n 6 /etc/pacman.d/mirrorlist.backup > /etc/pacman.d/mirrorlist'
+    run_command  'perl -i -0pe "s/#(\[multilib\]\n)#(Include)/\1\2/" /etc/pacman.conf'        'add multilib repo to pacman'
   fi
 fi
 
@@ -186,7 +187,7 @@ fi
 
 if confirm_main_step 'install some useful packages with pacman'
 then
-  run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools wireless_tools gstreamer  gst-plugins-base gst-plugins-good gst-plugins-ugly gst-plugins-bad ntfs-3g dnsutils mlocate'
+  run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools wireless_tools gstreamer  gst-plugins-base gst-plugins-good gst-plugins-ugly gst-plugins-bad ntfs-3g dnsutils mlocate lsof'
   show_main_step 'configuring ssh'
   run_command 'read enable_x11_forward' 'Do you want to enable X11 forwarding? \(y\)es / \(n\)o\)?'
   if [ "$enabl_x11_forward" == 'y' ]
@@ -275,13 +276,17 @@ else
     run_command  ' systemctl enable netctl-auto@wlan0.service'  ' Enable netctl auto connection using wlan0'
   fi
   run_command 'pacman -S ifplugd' 'Install ifplugd - needed for netctl eth'
+  run_command 'ln -s /etc/netctl/examples/ethernet-dhcp /etc/netctl/'
   run_command 'systemctl disable systemd-networkd.service' 'disable networkd to only use netctl'
-  run_command 'systemctl enable netctl-ifplugd@eth0.service' 'enable eth connectin using netctl'  
+  run_command 'systemctl enable netctl-ifplugd@eth0.service' 'enable eth connection using netctl'  
 fi
 
 show_main_step 'Successful initial install!!!!'
 if [ $is_chroot -eq 1 ]
 then
   show_warning    'Post install must be done runing archlinux_post_install.sh on target machine'
+else
+  archlinux_post_install.sh
 fi
+show_main_step 'Successful initial install!!!!'
 end

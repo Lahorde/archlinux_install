@@ -108,7 +108,7 @@ function run_command
 
 function get_host_arch 
 {
-  if cat /proc/device-tree/model 2> /dev/null |grep -qi 'raspberry pi'
+  if uname -a |grep -qi 'armv'
   then
     run_command 'res=$(uname -a)' 
     if [[ "$res" =~ ^.*[[:space:]]armv6l[[:space:]].* ]]

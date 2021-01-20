@@ -92,9 +92,10 @@ show_text 'Select image type :'
 show_text '       ARMv6     version for RPi1 and 0    (1)'
 show_text '       ARMv7     version for RPi2/3        (2)'
 show_text '       ARMv8 x64 version for RPi2/3        (3)'
+show_text '       ARMv7     version for RPi4          (4)'
 
 read arm_version
-if [[ ! $arm_version =~ ^[1-3]+$ ]]
+if [[ ! $arm_version =~ ^[1-4]+$ ]]
 then 
   show_error 'image type not handled'
   end 
@@ -103,13 +104,16 @@ fi
 
 arm_target=('rpi_armv6' \
             'rpi_armv7' \
-            'rpi_armv8')
+            'rpi_armv8',\
+            'rpi_armv7')
 arm_urls=('http://os.archlinuxarm.org/os/' \
+          'http://os.archlinuxarm.org/os/' \
           'http://os.archlinuxarm.org/os/' \
           'http://os.archlinuxarm.org/os/')
 arm_files=('ArchLinuxARM-rpi-latest.tar.gz' \
           'ArchLinuxARM-rpi-2-latest.tar.gz' \
-          'ArchLinuxARM-rpi-3-latest.tar.gz')
+          'ArchLinuxARM-rpi-3-latest.tar.gz' \
+          'ArchLinuxARM-rpi-4-latest.tar.gz')
 
 img_url=${arm_urls[(($arm_version - 1))]}${arm_files[(($arm_version - 1))]}
 

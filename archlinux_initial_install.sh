@@ -8,7 +8,8 @@ KEYMAP=fr
 LOCALES=('en_US.UTF-8 UTF-8' 'fr_FR.UTF-8 UTF-8')
 LANG='fr_FR.UTF-8'
 declare -A CONFIG_FILES
-CONFIG_FILES=(['../config_files/netctl/home_remi']='/etc/netctl' #\
+CONFIG_FILES=( #\
+   # ['../config_files/netctl/home_remi']='/etc/netctl' #\
    # ['../config_files/samba/smb.conf']='/etc/samba/'
 )
 
@@ -137,6 +138,7 @@ if confirm_main_step 'initialize pacman'
 then
   run_command  'pacman -Sy'
   run_command  'pacman-key --init'                                                         ' Update pacman key'
+  run_command  'pacman-key --populate archlinuxarm'
   run_command  'pacman --needed -S archlinux-keyring'
   run_command  'pacman -Syu'                                                               ' Updating packages'
   run_command  'pacman --needed -S sed less awk gzip '                                     ' Installing required packages for install'
@@ -187,7 +189,7 @@ fi
 
 if confirm_main_step 'install some useful packages with pacman'
 then
-  run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux wpa_actiond git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools wireless_tools gstreamer  gst-plugins-base gst-plugins-good gst-plugins-ugly gst-plugins-bad ntfs-3g dnsutils mlocate lsof'
+  run_command 'pacman --needed -S gvim openssh python python-pip python2 python2-pip python-numpy python2-numpy avahi samba tmux git bluez bluez-utils nss-mdns binutils base base-devel parted distcc alsa-utils xorg-xauth opencv wget efibootmgr unzip arch-install-scripts net-tools wireless_tools gstreamer  gst-plugins-base gst-plugins-good gst-plugins-ugly gst-plugins-bad ntfs-3g dnsutils mlocate lsof'
   show_main_step 'configuring ssh'
   run_command 'read enable_x11_forward' 'Do you want to enable X11 forwarding? \(y\)es / \(n\)o\)?'
   if [ "$enabl_x11_forward" == 'y' ]

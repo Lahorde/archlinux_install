@@ -5,7 +5,7 @@ With these scripts Arch can be installed on some
 * arm
  * raspberry 1
  * raspberry 2
- * raspberry 3
+ * raspberry 4
 * x86_64 targets. 
 
 In order to facilitate and speed up installation it can perform install in a chrooted environment.
